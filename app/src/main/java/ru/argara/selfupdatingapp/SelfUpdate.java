@@ -1,7 +1,10 @@
 package ru.argara.selfupdatingapp;
 
+import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -35,6 +38,9 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 import cz.msebera.android.httpclient.Header;
 
@@ -64,8 +70,39 @@ public class SelfUpdate extends AppCompatActivity {
 	int checkInet;
 	String TAG = "FAB TAG";
 
+	SharedPreferences prefs = getSharedPreferences("MyPrefs",
+			Context.MODE_PRIVATE);
+	SharedPreferences.Editor prefEdit = prefs.edit();
+
+	int sf_vercode = 0;
+	int sf_day = 0;
+	//boolean sf_upd = true;
+
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		getData();
+
+		PackageInfo pInfo = null;
+		try {
+			pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+			version = pInfo.versionName;
+			verCode = pInfo.versionCode;
+		} catch (PackageManager.NameNotFoundException e) {
+			throw new RuntimeException(e);
+		}
+
+
+
+
+
+		if(sf_day == getDay()) {
+			startIntent();
+			//return;
+		}
+
+
+
+
 		setContentView(R.layout.activity_selfupdateapp);
 
 		init();
@@ -86,15 +123,10 @@ public class SelfUpdate extends AppCompatActivity {
 					tv_selfupdate_text.setText("Проверка обновления");
 
 
-					try {
-						PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-						version = pInfo.versionName;
-						verCode = pInfo.versionCode;
+
 
 						checkUpdApp();
-					} catch (PackageManager.NameNotFoundException e) {
-						e.printStackTrace();
-					}
+
 				}
 
 
@@ -117,14 +149,31 @@ public class SelfUpdate extends AppCompatActivity {
 
 	}
 
+	public int getDay(){
+		String currentDate = new SimpleDateFormat("dd", Locale.getDefault()).format(new Date());
+		return Integer.parseInt(currentDate);
+	}
 
+	public void putData(int vercode){
+		prefEdit.putString("vercode", String.valueOf(vercode));
+		prefEdit.putString("day", String.valueOf(getDay()));
+		// Сохраните изменения.
+		prefEdit.apply();
+	}
+
+
+	public void getData(){
+		// проверяем, первый ли раз открывается программа
+		sf_vercode = prefs.getInt("vercode", 0);
+		sf_day = prefs.getInt("day", 0);
+	}
 
 
 	public void checkUpdApp() {
 
 
 		RequestParams params = new RequestParams();
-		params.put("p", _PACKAGE_NAME); // VERSION_CODE
+		params.put("p", _PACKAGE_NAME); // PACKAGE_NAME
 		params.put("vc", verCode); // VERSION_CODE
 		//params.put("username", "username");
 		//params.put("password", "password");
@@ -146,6 +195,7 @@ public class SelfUpdate extends AppCompatActivity {
 
 						tv_selfupdate_text.setText("Доступно обновление");
 						String url = response.getString("url");
+						//int responseVersion = response.getInt("version");
 						//ffff(url);
 
 						download(url, APP_DB_PATH);
@@ -176,6 +226,8 @@ public class SelfUpdate extends AppCompatActivity {
 				Log.d(TAG, "onFailure");
 				Log.e("ERROR", e.toString());
 				Log.d(TAG, String.valueOf(e));
+
+				startIntent();
 				//return false;
 				//inetcheck.setText("onFailure " + statusCode);
 			}
@@ -369,7 +421,7 @@ public class SelfUpdate extends AppCompatActivity {
 				//totalDownloaded = fileLength;
 
 				if(totalDownloaded == fileLength) {
-
+					//putData(verCode);
 					new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 						@Override
 						public void run() {
@@ -386,7 +438,7 @@ public class SelfUpdate extends AppCompatActivity {
 						public void run() {
 							startIntent();
 						}
-					}, 3000);
+					}, 1000);
 				}
 
 
@@ -440,6 +492,7 @@ public class SelfUpdate extends AppCompatActivity {
 
 		} catch (ActivityNotFoundException anfe) {
 			Toast.makeText(this, "No activity found to open this attachment.", Toast.LENGTH_LONG).show();
+			startIntent();
 		}
 	}
 
