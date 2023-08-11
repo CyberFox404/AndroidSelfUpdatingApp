@@ -7,7 +7,7 @@ import android.util.Log;
 
 public class MainActivity extends AppCompatActivity {
 
-	SelfUpdate su = new SelfUpdate();
+	//SelfUpdate su = new SelfUpdate();
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -15,6 +15,6 @@ public class MainActivity extends AppCompatActivity {
 		setContentView(R.layout.activity_main);
 
 
-		Log.d("FAB " + "SelfUpdate", su.APP_DB_PATH);
+		//Log.d("FAB " + "SelfUpdate", su.APP_DB_PATH);
 	}
 }

@@ -2,6 +2,11 @@ plugins {
     id 'com.android.application'
 }
 
+def versionMajor = 2
+def versionMinor = 0
+def versionPatch = 0
+def versionBuild = 0 // Bump for dogfood builds, public betas, etc.
+
 android {
     namespace 'ru.argara.selfupdatingapp'
     compileSdk 33
@@ -10,8 +15,9 @@ android {
         applicationId "ru.argara.selfupdatingapp"
         minSdk 24
         targetSdk 33
-        versionCode 1
-        versionName "1.0"
+
+        versionCode versionMajor * 10000 + versionMinor * 1000 + versionPatch * 100 + versionBuild
+        versionName "${versionMajor}.${versionMinor}.${versionPatch}"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -27,6 +33,14 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+
+    applicationVariants.all {
+        variant ->
+            variant.outputs.each {
+                output ->
+                    output.outputFileName = "${defaultConfig.applicationId}_${defaultConfig.versionCode}.apk"
+            }
+    }
 }
 
 dependencies {
@@ -38,4 +52,6 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
     implementation 'com.loopj.android:android-async-http:1.4.11'
+    // https://www.kodeco.com/10056112-securing-network-data-tutorial-for-android
+    //implementation 'com.datatheorem.android.trustkit:trustkit:1.1.2'
 }
