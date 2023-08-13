@@ -1,10 +1,13 @@
 package ru.argara.selfupdatingapp;
 
+import android.Manifest;
 import android.app.Activity;
+import android.app.AppOpsManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -13,24 +16,34 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.util.Log;
+import android.view.View;
 import android.webkit.MimeTypeMap;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
+import com.google.android.material.snackbar.Snackbar;
 import com.loopj.android.http.JsonHttpResponseHandler;
 import com.loopj.android.http.RequestParams;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,15 +51,19 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Objects;
 
 import cz.msebera.android.httpclient.Header;
+import cz.msebera.httpclient.android.BuildConfig;
 
 public class SelfUpdate extends AppCompatActivity {
 
 
+	private static final int PERMISSION_REQUEST_CODE = 101;
 	//String SIO_URL_APP_UPD = "http://192.168.0.20/checkUPD/";
 	String SIO_URL_APP_UPD = "https://gorg404.ru/android_upd/";
 
@@ -59,8 +76,8 @@ public class SelfUpdate extends AppCompatActivity {
 	AsyncHttp asyncHttp;
 
 
-	String version;
-	int verCode;
+	String _VERSION_NAME;
+	int _VERSION_CODE;
 
 	ProgressBar progressBarCircle;
 	ProgressBar progressBarLine;
@@ -70,23 +87,160 @@ public class SelfUpdate extends AppCompatActivity {
 	int checkInet;
 	String TAG = "FAB TAG";
 
-	SharedPreferences prefs = getSharedPreferences("MyPrefs",
-			Context.MODE_PRIVATE);
-	SharedPreferences.Editor prefEdit = prefs.edit();
+	SharedPreferences prefs;
+	SharedPreferences.Editor prefEdit;
 
 	int sf_vercode = 0;
 	int sf_day = 0;
-	//boolean sf_upd = true;
+	boolean sf_upd = false;
+
+	String[] permissions = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
+
+	private PermissionHelper permissionHelper;
+
+	String md5;
+
+	//int PERMISSION_REQUEST_CODE = 101;
+
+	//MyRequestPermissions myRequestPermissions;
+
+	private static final String CAMERA_PERMISSION = Manifest.permission.CAMERA;
+	private static final String WRITE_EXTERNAL_STORAGE_PERMISSION = Manifest.permission.WRITE_EXTERNAL_STORAGE;
+	private static final String READ_EXTERNAL_STORAGE_PERMISSION = Manifest.permission.READ_EXTERNAL_STORAGE;
+
 
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_selfupdateapp);
+		prefs = getSharedPreferences("MyPrefs",
+				Context.MODE_PRIVATE);
+		prefEdit = prefs.edit();
+
+
+		//permissionOn();
+
+if(!hasAllFilesAccess()) {
+	Log.d("FAB hasAllFilesAccess" , "off");
+	ff();
+} else {
+	Log.d("FAB hasAllFilesAccess" , "on");
+	permissionOn();
+}
+
+
+
+
+
+	}
+
+	boolean checkPermission(String[] permissions){
+		//int res = 0;
+		//boolean res = true;
+		boolean allowed = true;
+
+		//for (String perms : permissions){
+		//	res = checkPermission(perms);
+		//	if(res && (res == PackageManager.PERMISSION_GRANTED)){
+		//		allowed = allowed && (res == PackageManager.PERMISSION_GRANTED);
+		//	}
+		//	if (!(res == PackageManager.PERMISSION_GRANTED)){
+		//		return false;
+		//	}
+		//}
+		//return true;
+
+		for (String perms : permissions){
+			allowed = allowed && checkPermission(perms);
+		}
+		return allowed;
+
+	}
+
+	public boolean checkPermission(String permission) {
+		//if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+		int result = ContextCompat.checkSelfPermission(this, permission);
+		return (result == PackageManager.PERMISSION_GRANTED);
+		//}
+		//return false;
+	}
+
+	private boolean hasAllFilesAccess() {
+
+		AppOpsManager appOpsManager = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+
+		try {
+			ApplicationInfo app  = getPackageManager().getApplicationInfo(getPackageName(), 0);
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+				return appOpsManager.unsafeCheckOpNoThrow("android:manage_external_storage",app.uid, getPackageName()) == AppOpsManager.MODE_ALLOWED;
+			}
+
+		} catch (PackageManager.NameNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		return false;
+	}
+
+
+	void ff(){
+		Log.d("FAB ff" , "main");
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+	Log.d("FAB ff" , "Build.VERSION.SDK_INT >= Build.VERSION_CODES.R");
+		if(!Environment.isExternalStorageManager()){
+			Snackbar.make(findViewById(android.R.id.content), "Необходимо разрешение!", Snackbar.LENGTH_INDEFINITE)
+					.setAction("Настройки", v -> {
+						Intent intent;
+						try {
+							//Uri uri = Uri.parse("package:" + BuildConfig.APPLICATION_ID);
+							Uri uri = Uri.parse("package:ru.argara.selfupdatingapp");
+							intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, uri);
+							//startActivity(intent);
+						} catch (Exception ex){
+							intent = new Intent();
+							intent.setAction(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+							//startActivity(intent);
+						}
+						mStartForResult.launch(intent);
+					})
+					.show();
+		}
+	}
+	}
+
+
+	ActivityResultLauncher<Intent> mStartForResult = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+			result -> {
+				Log.d("FAB mStartForResult" , "1");
+				//if(result.getResultCode() == Activity.RESULT_OK){
+				//	Log.d("FAB mStartForResult" , "permissionOn");
+				//	permissionOn();
+				//} else {
+				//	Log.d("FAB mStartForResult" , "permissionOff");
+				//	permissionOff();
+				//}
+
+				if(!hasAllFilesAccess()) {
+					Log.d("FAB mStartForResult" , "off");
+					//ff();
+				} else {
+					Log.d("FAB mStartForResult" , "on");
+					permissionOn();
+				}
+			});
+
+	public void permissionOn(){
+		Log.d("FAB " , "permissionOn");
+		//while (!requestMultiplePermissions()){
+
+		//}
+
 		getData();
 
 		PackageInfo pInfo = null;
 		try {
 			pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-			version = pInfo.versionName;
-			verCode = pInfo.versionCode;
+			_VERSION_NAME = pInfo.versionName;
+			_VERSION_CODE = pInfo.versionCode;
 		} catch (PackageManager.NameNotFoundException e) {
 			throw new RuntimeException(e);
 		}
@@ -96,14 +250,28 @@ public class SelfUpdate extends AppCompatActivity {
 
 
 		if(sf_day == getDay()) {
-			startIntent();
+			Log.d("FAB " + "sf_day == getDay", "1");
+			//startIntent();
 			//return;
+		}
+
+		if(sf_upd){
+			Log.d("FAB " + "sf_upd", String.valueOf(sf_upd));
+			putData();
+			//startIntent();
 		}
 
 
 
+		//if(sf_vercode == _VERSION_CODE) {
+		//	putData();
+		//	startIntent();
+		//}
 
-		setContentView(R.layout.activity_selfupdateapp);
+
+
+
+
 
 		init();
 
@@ -125,7 +293,7 @@ public class SelfUpdate extends AppCompatActivity {
 
 
 
-						checkUpdApp();
+					checkUpdApp();
 
 				}
 
@@ -137,7 +305,7 @@ public class SelfUpdate extends AppCompatActivity {
 				//inetcheck.setText("onFailure " + statusCode);
 				if (ID == checkInet) {
 					//inetcheck.setText("onFailure " + statusCode);
-
+					Log.d("FAB " + "ponFailure", "ponFailure");
 					startIntent();
 
 				}
@@ -145,8 +313,37 @@ public class SelfUpdate extends AppCompatActivity {
 		});
 
 
+	}
+
+	public void permissionOff(){
+		Log.d("FAB " , "permissionOff");
+	}
 
 
+	public void init(){
+		_PACKAGE_NAME = getApplicationContext().getPackageName();
+		APP_DB_PATH_SHORT = Environment.DIRECTORY_DOWNLOADS + "/"+_PACKAGE_NAME+"/downloads/app";
+		//APP_DB_PATH_SHORT = Environment.DIRECTORY_DOWNLOADS + "/FFFF/downloads/app/";
+		APP_DB_PATH = Environment.getExternalStoragePublicDirectory(APP_DB_PATH_SHORT).toString();
+		//APP_DB_PATH = Environment.getExternalStorageDirectory()  + "/"+_PACKAGE_NAME+"/downloads/app/";
+
+		File dbDir = new File(APP_DB_PATH);
+		dbDir.mkdirs(); // creates needed dirs
+
+		asyncHttp = new AsyncHttp();
+
+		progressBarCircle = findViewById(R.id.progressBarCircle);
+		progressBarLine = findViewById(R.id.progressBarLine);
+		tv_selfupdate_title = findViewById(R.id.tv_selfupdate_title);
+		tv_selfupdate_text = findViewById(R.id.tv_selfupdate_text);
+	}
+
+	public void startIntent(){
+		Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+		intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|
+				Intent.FLAG_ACTIVITY_CLEAR_TASK |
+				Intent.FLAG_ACTIVITY_NEW_TASK);
+		startActivity(intent);
 	}
 
 	public int getDay(){
@@ -154,19 +351,19 @@ public class SelfUpdate extends AppCompatActivity {
 		return Integer.parseInt(currentDate);
 	}
 
-	public void putData(int vercode){
-		prefEdit.putString("vercode", String.valueOf(vercode));
-		prefEdit.putString("day", String.valueOf(getDay()));
+	public void putData() {
+		prefEdit.putInt("vercode", _VERSION_CODE);
+		prefEdit.putInt("day", getDay());
 		// Сохраните изменения.
 		prefEdit.apply();
 	}
 
 
 	public void getData(){
-		// проверяем, первый ли раз открывается программа
 		sf_vercode = prefs.getInt("vercode", 0);
 		sf_day = prefs.getInt("day", 0);
 	}
+
 
 
 	public void checkUpdApp() {
@@ -174,7 +371,7 @@ public class SelfUpdate extends AppCompatActivity {
 
 		RequestParams params = new RequestParams();
 		params.put("p", _PACKAGE_NAME); // PACKAGE_NAME
-		params.put("vc", verCode); // VERSION_CODE
+		params.put("vc", _VERSION_CODE); // VERSION_CODE
 		//params.put("username", "username");
 		//params.put("password", "password");
 
@@ -183,6 +380,8 @@ public class SelfUpdate extends AppCompatActivity {
 			@Override
 			public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
 				// If the response is JSONObject instead of expected JSONArray
+
+				//putData();
 
 
 				Log.d(TAG, "onSuccess JSONObject");
@@ -195,11 +394,13 @@ public class SelfUpdate extends AppCompatActivity {
 
 						tv_selfupdate_text.setText("Доступно обновление");
 						String url = response.getString("url");
+						md5 = response.getString("md5");
 						//int responseVersion = response.getInt("version");
 						//ffff(url);
 
 						download(url, APP_DB_PATH);
 					} else {
+						Log.d("FAB " + "ponFresponse.getBoolean(\"check\")", "false");
 						startIntent();
 					}
 
@@ -208,6 +409,8 @@ public class SelfUpdate extends AppCompatActivity {
 				} catch (JSONException e) {
 					//throw new RuntimeException(e);
 					Log.d(TAG, "Error " + String.valueOf(e));
+					Log.d("FAB " + "JSONException", "JSONException");
+					startIntent();
 				}
 
 				//inetcheck.setText("Success " + statusCode);
@@ -245,30 +448,37 @@ public class SelfUpdate extends AppCompatActivity {
 	//	init(false);
 	//}
 
-	public void init(){
-		_PACKAGE_NAME = getApplicationContext().getPackageName();
-		APP_DB_PATH_SHORT = Environment.DIRECTORY_DOWNLOADS + "/"+_PACKAGE_NAME+"/downloads/app/";
-		//APP_DB_PATH_SHORT = Environment.DIRECTORY_DOWNLOADS + "/FFFF/downloads/app/";
-		APP_DB_PATH = Environment.getExternalStoragePublicDirectory(APP_DB_PATH_SHORT).toString();
-		//APP_DB_PATH = Environment.getExternalStorageDirectory()  + "/"+_PACKAGE_NAME+"/downloads/app/";
-
-		File dbDir = new File(APP_DB_PATH);
-		dbDir.mkdirs(); // creates needed dirs
-
-		asyncHttp = new AsyncHttp();
-
-		progressBarCircle = findViewById(R.id.progressBarCircle);
-		progressBarLine = findViewById(R.id.progressBarLine);
-		tv_selfupdate_title = findViewById(R.id.tv_selfupdate_title);
-		tv_selfupdate_text = findViewById(R.id.tv_selfupdate_text);
+	public static String fileToMD5(String filePath) {
+		InputStream inputStream = null;
+		try {
+			inputStream = new FileInputStream(filePath);
+			byte[] buffer = new byte[1024];
+			MessageDigest digest = MessageDigest.getInstance("MD5");
+			int numRead = 0;
+			while (numRead != -1) {
+				numRead = inputStream.read(buffer);
+				if (numRead > 0)
+					digest.update(buffer, 0, numRead);
+			}
+			byte [] md5Bytes = digest.digest();
+			return convertHashToString(md5Bytes);
+		} catch (Exception e) {
+			return null;
+		} finally {
+			if (inputStream != null) {
+				try {
+					inputStream.close();
+				} catch (Exception e) { }
+			}
+		}
 	}
 
-	public void startIntent(){
-		Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-		intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|
-				Intent.FLAG_ACTIVITY_CLEAR_TASK |
-				Intent.FLAG_ACTIVITY_NEW_TASK);
-		startActivity(intent);
+	private static String convertHashToString(byte[] md5Bytes) {
+		String returnVal = "";
+		for (int i = 0; i < md5Bytes.length; i++) {
+			returnVal += Integer.toString(( md5Bytes[i] & 0xff ) + 0x100, 16).substring(1);
+		}
+		return returnVal.toUpperCase();
 	}
 
 
@@ -278,7 +488,7 @@ public class SelfUpdate extends AppCompatActivity {
 		Thread downloadThread = new Thread() {
 
 			long percents = 0;
-			String msg = null;
+			String msg = "normal";
 
 			final byte[] buffer = new byte[512];
 			long totalDownloaded = 0;
@@ -293,6 +503,12 @@ public class SelfUpdate extends AppCompatActivity {
 			final String fileName = "upd.apk";
 			//File saveTo = null;
 
+			String filePath = destinationDir + File.separator + fileName;
+			//String filePath = destinationDir + fileName;
+
+			//String md5 = "";
+
+
 
 
 
@@ -300,6 +516,8 @@ public class SelfUpdate extends AppCompatActivity {
 			@Override
 			public void run() {
 
+				File saveTo = new File(filePath);
+				File saveToDir = new File(destinationDir);
 
 
 
@@ -319,15 +537,56 @@ public class SelfUpdate extends AppCompatActivity {
 						///pd.show();
 						tv_selfupdate_title.setText("Загрузка обновления");
 
+						//if (saveToDir.isDirectory()){
+							//saveToDir.delete();
+						//	try {
+						//		FileUtils.deleteDirectory(saveToDir);
+						//	} catch (IOException e) {
+						//		throw new RuntimeException(e);
+						///	}
+						//}
+
+
+						saveToDir.delete();
+
+						if(saveToDir.exists()){
+							try {
+								saveToDir.getCanonicalFile().delete();
+							} catch (IOException e) {
+								throw new RuntimeException(e);
+							}
+							if(saveToDir.exists()){
+								getApplicationContext().deleteFile(saveToDir.getName());
+							}
+						}
+
 					}
 				});
 
 
 				//func.deleteDir(destinationDir);
 				//new File(destinationDir).mkdirs();
-				File saveTo = new File(destinationDir, fileName);
-				File saveToDir = new File(destinationDir);
+
+
+				//if(saveTo.exists()) {
+				//	File file2 = new File(saveTo.getAbsolutePath());
+				//	boolean deleted = file2.delete();
+				//	Log.d( "FAB deleted", String.valueOf(deleted));
+					//Toast.makeText(this, "File deleted.", Toast.LENGTH_SHORT).show();
+					//finish();
+				//}
+
+
+
+
+
+
+
+				if(saveTo.exists()) Log.d( "FAB deleted", "exists");
+					//boolean deleted = saveTo.delete();
 				boolean gf = saveToDir.mkdirs();
+
+
 
 				Log.v("downloads mkdirs", String.valueOf(gf));
 
@@ -410,6 +669,7 @@ public class SelfUpdate extends AppCompatActivity {
 
 
 				//Log.d(TAG, msg);
+				Log.d("FAB msg", msg);
 				Log.d(TAG, String.valueOf(saveTo));
 
 
@@ -421,7 +681,16 @@ public class SelfUpdate extends AppCompatActivity {
 				//totalDownloaded = fileLength;
 
 				if(totalDownloaded == fileLength) {
-					//putData(verCode);
+					String ms5DwnFile = fileToMD5(filePath);
+					Log.d("FAB md5", md5);
+					Log.d("FAB ms5DwnFile", ms5DwnFile);
+					if(Objects.equals(md5, fileToMD5(filePath))) {
+						Log.d("FAB fileToMD5", "ok");
+					} else {
+						Log.d("FAB fileToMD5", "err");
+					}
+
+					putData();
 					new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 						@Override
 						public void run() {
@@ -451,6 +720,8 @@ public class SelfUpdate extends AppCompatActivity {
 
 
 	public void installApp(String fullPathApp) {
+
+		sf_upd = true;
 		//Intent intent = new Intent(Intent.ACTION_VIEW);
 		//intent.setDataAndType(Uri.fromFile(new File(fullPathApp)), "application/vnd.android.package-archive");
 		//intent.setDataAndType(Uri.parse(fullPathApp), "application/vnd.android.package-archive");
