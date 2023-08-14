@@ -224,6 +224,7 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 	sf_upd = false;
 	sf_vercode = myConstants.VERSION_CODE;
 	putData();
+	new File(myConstants.APP_DOWNLOAD_FILE_PATH).delete();
 	startIntent();
 } else if(sf_day == getDay()) {
 			Log.d("FAB " + "sf_day == getDay", "1");
@@ -781,6 +782,11 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 			permissionOn();
 		}
 		}
+	}
+
+	public void onBackPressed(){
+		super.onBackPressed();
+		finish();
 	}
 
 }
