@@ -55,14 +55,14 @@ import cz.msebera.android.httpclient.Header;
 public class SelfUpdate extends AppCompatActivity {
 
 
-	private static final int PERMISSION_REQUEST_CODE = 101;
+	//private static final int PERMISSION_REQUEST_CODE = 101;
 	//String SIO_URL_APP_UPD = "http://192.168.0.20/checkUPD/";
 	//String SIO_URL_APP_UPD = "https://gorg404.ru/android_upd/";
 
-	String _PACKAGE_NAME;
+	//String _PACKAGE_NAME;
 	//String _DIR_SAVE;
-	String APP_DB_PATH_SHORT;
-	String APP_DB_PATH;
+	//String APP_DB_PATH_SHORT;
+	//String APP_DB_PATH;
 
 
 	AsyncHttp asyncHttp;
@@ -75,6 +75,7 @@ public class SelfUpdate extends AppCompatActivity {
 	ProgressBar progressBarLine;
 	TextView tv_selfupdate_title;
 	TextView tv_selfupdate_text;
+	TextView tv_version_name;
 
 	int checkInet;
 	String TAG = "FAB TAG";
@@ -106,6 +107,7 @@ public class SelfUpdate extends AppCompatActivity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_selfupdateapp);
+
 		prefs = getSharedPreferences("MyPrefs",
 				Context.MODE_PRIVATE);
 		prefEdit = prefs.edit();
@@ -215,22 +217,24 @@ if(!hasAllFilesAccess()) {
 
 
 
-if(sf_upd){
+if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
+	Log.d("FAB " + "sf_upd", "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 	Log.d("FAB " + "sf_upd", String.valueOf(sf_upd));
 	sf_day = getDay();
 	sf_upd = false;
+	sf_vercode = myConstants.VERSION_CODE;
 	putData();
-}
-
-
-
-		if(sf_day == getDay()) {
+	startIntent();
+} else if(sf_day == getDay()) {
 			Log.d("FAB " + "sf_day == getDay", "1");
 			startIntent();
 			//return;
 		} else {
 
+	sf_upd = false;
 
+			sf_vercode = myConstants.VERSION_CODE;
+			putData();
 			//if(sf_vercode == _VERSION_CODE) {
 			//	putData();
 			//	startIntent();
@@ -302,6 +306,9 @@ if(sf_upd){
 		progressBarLine = findViewById(R.id.progressBarLine);
 		tv_selfupdate_title = findViewById(R.id.tv_selfupdate_title);
 		tv_selfupdate_text = findViewById(R.id.tv_selfupdate_text);
+		tv_version_name = findViewById(R.id.tv_version_name);
+
+		tv_version_name.setText(myConstants.VERSION_NAME);
 	}
 
 	public void startIntent(){
@@ -319,7 +326,7 @@ if(sf_upd){
 
 	public void putData() {
 		prefEdit.putInt("sf_vercode", myConstants.VERSION_CODE);
-		prefEdit.putInt("sf_day", getDay());
+		prefEdit.putInt("sf_day", sf_day);
 		prefEdit.putBoolean("sf_upd", sf_upd);
 		prefEdit.apply(); // Сохраните изменения.
 	}
@@ -760,6 +767,8 @@ if(sf_upd){
 
 	public void onResume() {
 		super.onResume();
+
+		//Log.d("FAB onResume", FILE_ALL_READ);
 		if( FILE_ALL_READ ) {
 
 		if (!hasAllFilesAccess()) {
