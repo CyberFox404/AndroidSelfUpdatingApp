@@ -116,7 +116,7 @@ public class SelfUpdate extends AppCompatActivity {
 		myConstants.init();
 
 		//MyConstants.constantsInit();
-
+init();
 
 		//permissionOn();
 
@@ -231,7 +231,7 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 			//return;
 		} else {
 
-	sf_upd = false;
+	//sf_upd = false;
 
 			sf_vercode = myConstants.VERSION_CODE;
 			putData();
@@ -241,7 +241,7 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 			//}
 
 
-			init();
+			//init();
 
 
 			Log.d("FAB " + "SelfUpdate", myConstants.APP_DOWNLOAD_PATH);
@@ -368,7 +368,9 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 						String JSON_URL_DESTINATION_FILE = response.getString("url");
 						JSON_UPDFILE_MD5 = response.getString("md5");
 
+						sf_upd = true;
 
+						putData();
 						//final String fileName = JSON_URL_DESTINATION_FILE.substring(JSON_URL_DESTINATION_FILE.lastIndexOf('/') + 1);
 
 						File fileUpdExists = new File(myConstants.APP_DOWNLOAD_FILE_PATH);
@@ -709,9 +711,7 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 			public void run() {
 
 
-		sf_upd = true;
 
-		putData();
 		//Intent intent = new Intent(Intent.ACTION_VIEW);
 		//intent.setDataAndType(Uri.fromFile(new File(fullPathApp)), "application/vnd.android.package-archive");
 		//intent.setDataAndType(Uri.parse(fullPathApp), "application/vnd.android.package-archive");
