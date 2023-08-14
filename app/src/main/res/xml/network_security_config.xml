@@ -3,6 +3,6 @@
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">ya.ru</domain>
         <domain includeSubdomains="true">192.168.0.20</domain>
-        <domain includeSubdomains="true">tgb.gorg404.ru</domain>
+        <domain includeSubdomains="true">gorg404.ru</domain>
     </domain-config>
 </network-security-config>
