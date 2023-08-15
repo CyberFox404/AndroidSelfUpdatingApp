@@ -16,6 +16,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.View;
 import android.webkit.MimeTypeMap;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -366,6 +367,9 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 					if(response.getBoolean("check")) {
 
 						tv_selfupdate_text.setText("Доступно обновление");
+
+
+
 						String JSON_URL_DESTINATION_FILE = response.getString("url");
 						JSON_UPDFILE_MD5 = response.getString("md5");
 
@@ -379,6 +383,12 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 						if(fileUpdExists.exists() && (Objects.equals(fileToMD5(myConstants.APP_DOWNLOAD_FILE_PATH), JSON_UPDFILE_MD5))) {
 							installApp(fileUpdExists.toString());
 						} else {
+
+							progressBarCircle.setVisibility(View.GONE);
+							progressBarLine.setVisibility(View.VISIBLE);
+							progressBarLine.setIndeterminate(true);
+
+
 							download(JSON_URL_DESTINATION_FILE, myConstants.APP_DOWNLOAD_PATH, myConstants.APP_DOWNLOAD_FILE_NAME);
 						}
 
@@ -476,7 +486,7 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 
 		Thread downloadThread = new Thread() {
 
-			long percents = 0;
+			int percents = 0;
 			String msg = "normal";
 
 			final byte[] buffer = new byte[512];
@@ -525,6 +535,11 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 						//pd.setMessage("Загрузка ...");
 						///pd.show();
 						tv_selfupdate_title.setText("Загрузка обновления");
+
+
+
+						progressBarLine.setIndeterminate(false);
+						progressBarLine.setProgress(0);
 
 						//if (saveToDir.isDirectory()){
 							//saveToDir.delete();
@@ -603,7 +618,7 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 
 					while ((count = is.read(buffer)) != -1) {
 						totalDownloaded += count;
-						percents = (totalDownloaded * 100 / fileLength);
+						percents = (int) (totalDownloaded * 100 / fileLength);
 						//publishProgress(percents, totalDownloaded, fileLength);
 
 
@@ -617,8 +632,9 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 						new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
 							@Override
 							public void run() {
-								progressBarLine.setProgress((int) percents);
+								progressBarLine.setProgress(percents);
 								tv_selfupdate_text.setText(String.valueOf(percents) + "%");
+								progressBarLine.setProgress(percents);
 							}
 						}, 100);
 /*
@@ -670,6 +686,9 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 				//totalDownloaded = fileLength;
 
 				if(totalDownloaded == fileLength) {
+					tv_selfupdate_title.setText("Установка обновления");
+					tv_selfupdate_text.setText("");
+					progressBarLine.setIndeterminate(true);
 					String ms5DwnFile = fileToMD5(filePath);
 					Log.d("FAB md5", JSON_UPDFILE_MD5);
 					Log.d("FAB ms5DwnFile", ms5DwnFile);
