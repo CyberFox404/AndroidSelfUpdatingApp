@@ -685,7 +685,8 @@ if(sf_upd && (sf_vercode != myConstants.VERSION_CODE)){
 
 				//totalDownloaded = fileLength;
 
-				if(totalDownloaded == fileLength) {
+				//if(totalDownloaded == fileLength) {
+				if(Objects.equals(totalDownloaded, fileLength)) {
 					tv_selfupdate_title.setText("Установка обновления");
 					tv_selfupdate_text.setText("");
 					progressBarLine.setIndeterminate(true);
